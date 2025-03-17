@@ -1,0 +1,19 @@
+version: '2.0'
+
+harpoon:
+  # Harpoon configuration
+  enabled: true
+  port: 8085
+  
+  # Authentication settings
+  auth:
+    token_expiration: 3600
+    
+  # Storage settings
+  storage:
+    path: /data/harpoon
+    
+  # Log settings
+  log:
+    level: info
+    path: /var/log/harpoon
