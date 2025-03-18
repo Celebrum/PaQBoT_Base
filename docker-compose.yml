@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  harbor-core:
+    image: goharbor/harbor-core:v2.12.0
+    container_name: harbor-core
+    restart: always
+    user: "10000:10000"
+    volumes:
+      - /data/harbor/core:/data:rw
+      - ./certs:/certs:rw
+      - type: bind
+        source: ./harbor.yml
+        target: /etc/harbor/harbor.yml
+    networks:
+      harbor-net:
+        aliases:
+          - harbor-core.local
+    ports:
+      - "8080:8080"
+    depends_on:
+      - harbor-db
+      - redis
+    environment:
+      - CORE_SECRET=change-this-password
+      - REGISTRY_URL=http://registry:5000
+      - PORTAL_URL=http://portal:8080
+      - TOKEN_SERVICE_URL=http://core:8080/service/token
+      - HARBOR_ADMIN_PASSWORD=${HARBOR_ADMIN_PASSWORD:-Harbor12345}
+      - INTERNAL_TLS_ENABLED=true
+      - INTERNAL_TLS_KEY_PATH=/certs/harbor.key
+      - INTERNAL_TLS_CERT_PATH=/certs/harbor.crt
+
+  harbor-db:
+    image: goharbor/harbor-db:v2.12.0
+    container_name: harbor-db
+    restart: always
+    user: "10000:10000"
+    volumes:
+      - /data/harbor/database:/var/lib/postgresql/data:rw
+    networks:
+      - harbor-net
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-root123}
+
+  registry:
+    image: goharbor/registry-photon:v2.12.0
+    container_name: registry
+    restart: always
+    user: "10000:10000"
+    volumes:
+      - /data/harbor/registry:/storage:rw
+      - ./certs:/certs:rw
+    networks:
+      - harbor-net
+    environment:
+      - REGISTRY_HTTP_SECRET=change-this-secret
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+
+  redis:
+    image: goharbor/redis-photon:v2.12.0
+    container_name: redis
+    restart: always
+    user: "10000:10000"
+    volumes:
+      - /data/harbor/redis:/var/lib/redis:rw
+    networks:
+      - harbor-net
+
+networks:
+  harbor-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+    labels:
+      - "com.harbor.network=internal"

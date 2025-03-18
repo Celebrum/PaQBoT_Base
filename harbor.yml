@@ -6,15 +6,23 @@ hostname: harbor.local  # Changed to a more specific hostname (you can replace t
 # http related config
 http:
   # port for http, default is 80. If https enabled, this port will redirect to https port
-  port: 80
+  port: 8084
 
 # https related config
 https:
   # https port for harbor, default is 443
-  port: 443
+  port: 8444
   # The path of cert and key files for nginx
   certificate: /certs/harbor.crt
   private_key: /certs/harbor.key
+
+internal_tls:
+  enabled: true
+  dir: /certs
+
+network:
+  ip_address: 172.20.0.1
+  subnet: 172.20.0.0/16
 
 # The initial password of Harbor admin
 # It only works in first time to install harbor
@@ -29,18 +37,22 @@ database:
   username: postgres
   password: root123  # Consider changing to something more secure
   # The maximum number of connections in the idle connection pool. If it <=0, no idle connections are retained.
-  max_idle_conns: 100
+  max_idle_conns: 50
   # The maximum number of open connections to the database. If it <= 0, then there is no limit on the number of open connections.
-  max_open_conns: 900
+  max_open_conns: 100
   conn_max_lifetime: 5m
   conn_max_idle_time: 0
 
 # Docker configuration
 docker:
-  insecure_registry: true
+  insecure_registry: false
   buildkit_builder: default
   buildx_install_url: ""  # Will use system installed buildx
   compose_version: v2
+  proxy:
+    http_proxy: 
+    https_proxy: 
+    no_proxy: localhost,127.0.0.1,harbor.local,.local
 
 # The default data volume
 data_volume: /data
