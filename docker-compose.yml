@@ -55,8 +55,6 @@ services:
     environment:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-root123}
       - POSTGRES_USER=harbor_user
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-root123}
-      - POSTGRES_USER=harbor_user
       - POSTGRES_DB=harbor
 
   registry:
