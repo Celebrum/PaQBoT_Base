@@ -1,13 +1,81 @@
 version: '3.8'
 
 services:
-  web:
-    image: nginx:latest
-    ports:
-      - "80:80"
+  harbor-core:
+    image: goharbor/harbor-core:v2.12.0
+    container_name: harbor-core
+    restart: always
+    volumes:
+      - /data/harbor/core:/data
+      - ./certs:/certs
+      - type: bind
+        source: ../harbor.yml
+        target: /etc/harbor/harbor.yml
     networks:
-      - cloud-net
+      - harbor-net
+    depends_on:
+      - harbor-db
+      - redis
+    environment:
+      - CORE_SECRET=change-this-password
+      - REGISTRY_URL=http://registry:5000
+      - PORTAL_URL=http://portal:8080
+      - TOKEN_SERVICE_URL=http://core:8080/service/token
+      - HARBOR_ADMIN_PASSWORD=${HARBOR_ADMIN_PASSWORD:-Harbor12345}
+
+  harbor-db:
+    image: goharbor/harbor-db:v2.12.0
+    container_name: harbor-db
+    restart: always
+    volumes:
+      - /data/harbor/database:/var/lib/postgresql/data
+    networks:
+      - harbor-net
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-root123}
+
+  registry:
+    image: goharbor/registry-photon:v2.12.0
+    container_name: registry
+    restart: always
+    volumes:
+      - /data/harbor/registry:/storage
+      - ./certs:/certs
+    networks:
+      - harbor-net
+    environment:
+      - REGISTRY_HTTP_SECRET=change-this-secret
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+
+  redis:
+    image: goharbor/redis-photon:v2.12.0
+    container_name: redis
+    restart: always
+    volumes:
+      - /data/harbor/redis:/var/lib/redis
+    networks:
+      - harbor-net
+
+  harpoon:
+    image: goharbor/harpoon:latest
+    container_name: harpoon
+    restart: always
+    volumes:
+      - /data/harpoon:/data
+      - ./certs:/certs
+      - type: bind
+        source: ../harpoon.yml
+        target: /etc/harpoon/config.yml
+    networks:
+      - harbor-net
+    depends_on:
+      - harbor-core
+    environment:
+      - HARPOON_HARBOR_URL=https://harbor-core:443
+      - HARPOON_LOG_LEVEL=info
 
 networks:
-  cloud-net:
+  harbor-net:
     driver: overlay
+    attachable: true
+    internal: false
