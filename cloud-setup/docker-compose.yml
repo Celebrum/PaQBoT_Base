@@ -5,9 +5,10 @@ services:
     image: goharbor/harbor-core:v2.12.0
     container_name: harbor-core
     restart: always
+    user: "10000:10000"
     volumes:
-      - /data/harbor/core:/data
-      - ./certs:/certs
+      - /data/harbor/core:/data:rw
+      - ./certs:/certs:rw
       - type: bind
         source: ../harbor.yml
         target: /etc/harbor/harbor.yml
@@ -27,8 +28,9 @@ services:
     image: goharbor/harbor-db:v2.12.0
     container_name: harbor-db
     restart: always
+    user: "10000:10000"
     volumes:
-      - /data/harbor/database:/var/lib/postgresql/data
+      - /data/harbor/database:/var/lib/postgresql/data:rw
     networks:
       - harbor-net
     environment:
@@ -38,9 +40,10 @@ services:
     image: goharbor/registry-photon:v2.12.0
     container_name: registry
     restart: always
+    user: "10000:10000"
     volumes:
-      - /data/harbor/registry:/storage
-      - ./certs:/certs
+      - /data/harbor/registry:/storage:rw
+      - ./certs:/certs:rw
     networks:
       - harbor-net
     environment:
@@ -51,8 +54,9 @@ services:
     image: goharbor/redis-photon:v2.12.0
     container_name: redis
     restart: always
+    user: "10000:10000"
     volumes:
-      - /data/harbor/redis:/var/lib/redis
+      - /data/harbor/redis:/var/lib/redis:rw
     networks:
       - harbor-net
 
