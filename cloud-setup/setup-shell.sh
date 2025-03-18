@@ -5,8 +5,8 @@ if [ -f ~/.bashrc ]; then
     cp ~/.bashrc ~/.bashrc.backup
 fi
 
-# Install required packages
-sudo dnf install -y \
+# Install required packages - use yum for OpenEuler compatibility
+sudo yum install -y \
     bash-completion \
     vim \
     git \
@@ -15,16 +15,18 @@ sudo dnf install -y \
     tmux \
     make \
     gcc \
-    python3-pip
+    python3-pip || echo "Package installation failed, continuing anyway"
 
-# Setup bash completion for Docker
-sudo curl -L https://raw.githubusercontent.com/docker/compose/master/contrib/completion/bash/docker-compose -o /usr/share/bash-completion/completions/docker-compose
-sudo curl -L https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker -o /usr/share/bash-completion/completions/docker
+# Setup bash completion for Docker - create directories if they don't exist
+sudo mkdir -p /usr/share/bash-completion/completions/
+sudo curl -L https://raw.githubusercontent.com/docker/compose/master/contrib/completion/bash/docker-compose -o /usr/share/bash-completion/completions/docker-compose || echo "Failed to download docker-compose completion"
+sudo curl -L https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker -o /usr/share/bash-completion/completions/docker || echo "Failed to download docker completion"
 
 # Create required directories
 mkdir -p /home/jean-sebastien/PaQBoT_Base/cloud-setup/certs
 
-# Configure ODBC
+# Configure ODBC if the directory exists
+sudo mkdir -p /etc
 sudo bash -c 'cat > /etc/odbcinst.ini << EOL
 [ODBC Driver 17 for SQL Server]
 Description=Microsoft ODBC Driver 17 for SQL Server
@@ -55,7 +57,7 @@ cat > /home/jean-sebastien/.docker/buildx/buildx.toml << EOL
   platforms = ["linux/amd64", "linux/arm64"]
 EOL
 
-# Create new bashrc
+# Create new bashrc - simplified for OpenEuler compatibility
 cat > ~/.bashrc << 'EOL'
 # If not running interactively, don't do anything
 case $- in
@@ -63,24 +65,19 @@ case $- in
       *) return;;
 esac
 
-# Don't put duplicate lines or lines starting with space in the history
+# History settings
 HISTCONTROL=ignoreboth
 HISTSIZE=1000
 HISTFILESIZE=2000
 shopt -s histappend
 shopt -s checkwinsize
 
-# Set prompt
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+# Basic prompt without fancy elements
+PS1='\u@\h:\w\$ '
 
 # Enable color support and aliases
-if [ -x /usr/bin/dircolors ]; then
-    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
-    alias grep='grep --color=auto'
-    alias fgrep='fgrep --color=auto'
-    alias egrep='egrep --color=auto'
-fi
+alias ls='ls --color=auto'
+alias grep='grep --color=auto'
 
 # Useful aliases
 alias ll='ls -alF'
@@ -91,21 +88,18 @@ alias dc='docker-compose'
 alias dps='docker ps'
 alias dim='docker images'
 
-# Enable programmable completion features
-if ! shopt -oq posix; then
-  if [ -f /usr/share/bash-completion/bash_completion ]; then
-    . /usr/share/bash-completion/bash_completion
-  elif [ -f /etc/bash_completion ]; then
+# Enable bash completion if available
+if [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
-  fi
 fi
 
-# Load Docker completions
-for f in /usr/share/bash-completion/completions/docker*; do
-    if [ -f "$f" ]; then
-        . "$f"
-    fi
-done
+# Simple git branch parsing function
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
+}
+
+# Enhanced prompt with git branch - simple version
+PS1='\u@\h:\w$(parse_git_branch)\$ '
 
 # Environment variables
 export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin
@@ -115,102 +109,33 @@ export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 export BUILDKIT_PROGRESS=plain
 export EDITOR=vim
+export TERM=xterm-256color
 
-# WSL-specific settings
-if grep -qi microsoft /proc/version; then
-    # Windows paths
-    export DOCKER_HOST=tcp://localhost:2375
-    # Auto CD to project directory
-    if [ "$PWD" = "$HOME" ]; then
-        cd /home/jean-sebastien/PaQBoT_Base
-    fi
+# Docker settings
+export DOCKER_HOST=unix:///var/run/docker.sock
+export DOCKER_CONTEXT=default
+
+# Auto CD to project directory
+if [ "$PWD" = "$HOME" ]; then
+    cd /home/jean-sebastien/PaQBoT_Base
 fi
-
-# Custom functions
-parse_git_branch() {
-    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
-}
-
-# Enhanced prompt with git branch
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]$(parse_git_branch)\[\033[00m\]\$ '
-
-# Source global definitions
-if [ -f /etc/bashrc ]; then
-    . /etc/bashrc
-fi
-
-# Enable bash completion
-if ! shopt -oq posix; then
-    if [ -f /usr/share/bash-completion/bash_completion ]; then
-        . /usr/share/bash-completion/bash_completion
-    elif [ -f /etc/bash_completion ]; then
-        . /etc/bash_completion
-    fi
-fi
-
-# Load Docker completions
-for f in /usr/share/bash-completion/completions/docker*; do
-    if [ -f "$f" ]; then
-        . "$f"
-    fi
-done
-
-# Source bash_profile
-if [ -f ~/.bash_profile ]; then
-    . ~/.bash_profile
-fi
-
-# Enhanced prompt with git branch
-parse_git_branch() {
-    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
-}
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]$(parse_git_branch)\[\033[00m\]\$ '
 EOL
 
-# Create inputrc for better completion
+# Create simple inputrc for better completion
 cat > ~/.inputrc << 'EOL'
 # Make Tab autocomplete regardless of filename case
 set completion-ignore-case on
-
 # List all matches in case multiple possible completions are possible
 set show-all-if-ambiguous on
-
-# Immediately add a trailing slash when autocompleting symlinks to directories
-set mark-symlinked-directories on
-
-# Use the text that has already been typed as the prefix for searching through
-# commands (i.e. more intelligent Up/Down behavior)
+# Use the text that has already been typed as the prefix for searching through commands
 "\e[B": history-search-forward
 "\e[A": history-search-backward
-
-# Do not autocomplete hidden files unless the pattern explicitly begins with a dot
-set match-hidden-files off
-
-# Show all autocomplete results at once
-set page-completions off
-
-# If there are more than 200 possible completions for a word, ask to show them all
-set completion-query-items 200
-
-# Show extra file information when completing, like `ls -F` does
-set visible-stats on
-
-# Be more intelligent when autocompleting by also looking at the text after
-# the cursor. For example, when the current line is "cd ~/src/mozil", and
-# the cursor is on the "z", pressing Tab will not autocomplete it to "cd
-# ~/src/mozillail", but to "cd ~/src/mozilla".
-set skip-completed-text on
-
-# Allow UTF-8 input and output, instead of showing stuff like $'\0123\0456'
-set input-meta on
-set output-meta on
-set convert-meta off
 EOL
 
 # Make the script executable
 chmod +x ~/.bashrc
 
-# Configure bash environment
+# Configure bash environment with a simplified profile
 cat > /home/jean-sebastien/.bash_profile << 'EOL'
 # Source bashrc
 if [ -f ~/.bashrc ]; then
@@ -220,18 +145,7 @@ fi
 # Environment variables
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
-export BUILDKIT_PROGRESS=plain
 export DOCKER_HOST=unix:///var/run/docker.sock
-export DOCKER_CONTEXT=default
-export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin
-
-# Docker aliases
-alias d='docker'
-alias dc='docker-compose'
-alias dps='docker ps'
-alias dim='docker images'
-alias dnet='docker network'
-alias dbuild='docker buildx build'
 
 # Auto CD to project directory
 if [ "$PWD" = "$HOME" ]; then
@@ -244,7 +158,7 @@ chmod 644 /home/jean-sebastien/.bash_profile
 chmod 644 /home/jean-sebastien/.bashrc
 chmod -R 755 /home/jean-sebastien/PaQBoT_Base/cloud-setup
 
-# Configure Docker daemon for BuildKit and Harbor
+# Configure Docker daemon - create directory if it doesn't exist
 sudo mkdir -p /etc/docker
 sudo bash -c 'cat > /etc/docker/daemon.json << EOL
 {
@@ -265,22 +179,10 @@ sudo bash -c 'cat > /etc/docker/daemon.json << EOL
         }
     },
     "default-runtime": "runc",
-    "runtimes": {
-        "nvidia": {
-            "path": "nvidia-container-runtime",
-            "runtimeArgs": []
-        }
-    },
-    "swarm": {
-        "default-addr-pool": ["10.0.0.0/8"],
-        "subnet-size": 24
-    },
     "log-driver": "json-file",
-    "storage-driver": "overlayfs"
+    "storage-driver": "overlay2"
 }
 EOL'
 
-# Source the new configuration
-source /home/jean-sebastien/.bash_profile
-
-echo "Shell environment setup complete. Please restart your terminal for all changes to take effect."
+# Run a simpler command to initialize the shell
+echo "Shell environment setup complete. Please run 'source ~/.bashrc' to apply changes immediately."
