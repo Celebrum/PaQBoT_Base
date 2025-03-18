@@ -8,14 +8,15 @@ function Write-Step {
     Write-Host "`n=== $Message ===" -ForegroundColor Cyan
 }
 
-function Pause-Script {
+function Wait-Script {
     Write-Host "Press any key to continue..." -ForegroundColor Yellow
     $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
 }
 
-try {
+try 
+{
     Write-Step "Starting Harbor Deployment"
-    Pause-Script
+    Wait-Script
 
     Write-Step "Creating Docker network"
     docker network create --driver bridge --subnet 172.20.0.0/16 harbor-net 2>$null
