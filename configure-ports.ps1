@@ -130,11 +130,37 @@ function Open-Port {
     param($port, $service)
     try {
         Write-Log "Opening port $port for $service..."
+        
+        # Check if service name is null or empty
+        if ([string]::IsNullOrEmpty($service)) {
+            $service = "Generic"
+        }
+        
         $ruleName = "PaQBoT-$($service.Replace(' ', ''))"
         
-        # Create firewall rules
-        New-NetFirewallRule -DisplayName "$ruleName-In" -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
-        New-NetFirewallRule -DisplayName "$ruleName-Out" -Direction Outbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
+        # Check if rules already exist
+        $existingRules = Get-NetFirewallRule -DisplayName "$ruleName-*" -ErrorAction SilentlyContinue
+        if ($existingRules) {
+            Write-Log "Removing existing rules for $ruleName"
+            $existingRules | Remove-NetFirewallRule
+        }
+        
+        # Create new firewall rules
+        Write-Log "Creating inbound rule for port $port"
+        New-NetFirewallRule -DisplayName "$ruleName-In" `
+                          -Direction Inbound `
+                          -Protocol TCP `
+                          -LocalPort $port `
+                          -Action Allow `
+                          -Description "PaQBoT inbound port $port for $service" | Out-Null
+        
+        Write-Log "Creating outbound rule for port $port"
+        New-NetFirewallRule -DisplayName "$ruleName-Out" `
+                          -Direction Outbound `
+                          -Protocol TCP `
+                          -LocalPort $port `
+                          -Action Allow `
+                          -Description "PaQBoT outbound port $port for $service" | Out-Null
         
         Write-Log "Successfully opened port $port"
         return $true
