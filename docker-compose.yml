@@ -19,15 +19,26 @@ services:
       harbor-net:
         aliases:
           - harbor-core.local
+      paqbot_paqbot_network:
+        aliases:
+          - harbor-core.paqbot
     depends_on:
       - harbor-db
       - redis
     environment:
-      - CORE_SECRET=change-this-password
+      - CORE_SECRET=${HARBOR_CORE_SECRET:-change-this-password}
       - REGISTRY_URL=http://registry:5000
       - PORTAL_URL=http://portal:8084
       - TOKEN_SERVICE_URL=http://core:8084/service/token
       - HARBOR_ADMIN_PASSWORD=${HARBOR_ADMIN_PASSWORD:-Harbor12345}
+      - POSTGRESQL_HOST=paqbot_database
+      - POSTGRESQL_PORT=5400
+      - POSTGRESQL_DATABASE=harbor
+      - POSTGRESQL_USERNAME=harbor_user
+      - POSTGRESQL_PASSWORD=${DB_PASSWORD:-root123}
+      - PAQBOT_ENGINE_URL=http://paqbot_engine:5100
+      - CONTENT_TRUST_ENABLED=true
+      - SCAN_ON_PUSH=true
 
   harbor-db:
     image: goharbor/harbor-db:v2.12.0
@@ -40,8 +51,13 @@ services:
       harbor-net:
         aliases:
           - harbor-db.local
+      paqbot_paqbot_network:
+        aliases:
+          - harbor-db.paqbot
     environment:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-root123}
+      - POSTGRES_USER=harbor_user
+      - POSTGRES_DB=harbor
 
   registry:
     image: goharbor/registry-photon:v2.12.0
@@ -55,9 +71,14 @@ services:
       harbor-net:
         aliases:
           - registry.local
+      paqbot_paqbot_network:
+        aliases:
+          - registry.paqbot
     environment:
-      - REGISTRY_HTTP_SECRET=change-this-secret
+      - REGISTRY_HTTP_SECRET=${REGISTRY_SECRET:-change-this-secret}
       - REGISTRY_STORAGE_DELETE_ENABLED=true
+      - REGISTRY_MIDDLEWARE_REPOSITORY_NAME=harbor-core
+      - REGISTRY_NOTIFICATION_URLS=http://harbor-core:8084/service/notifications
 
   redis:
     image: goharbor/redis-photon:v2.12.0
@@ -70,12 +91,50 @@ services:
       harbor-net:
         aliases:
           - redis.local
+      paqbot_paqbot_network:
+        aliases:
+          - redis.paqbot
+
+  content-trust:
+    image: goharbor/notary-server-photon:v2.12.0
+    container_name: content-trust
+    restart: always
+    networks:
+      - harbor-net
+      - paqbot_paqbot_network
+    depends_on:
+      - harbor-db
+    environment:
+      - NOTARY_SERVER_LOGGING_LEVEL=info
+      - DB_URL=postgres://harbor_user:${DB_PASSWORD:-root123}@harbor-db:5432/notary_server?sslmode=disable
+      
+  content-filter:
+    image: goharbor/clair-photon:v2.12.0
+    container_name: content-filter
+    restart: always
+    networks:
+      - harbor-net
+      - paqbot_paqbot_network
+    depends_on:
+      - harbor-db
+      - harbor-core
+    volumes:
+      - /data/harbor/clair:/clair:rw
+    environment:
+      - CLAIR_DB_HOST=harbor-db
+      - CLAIR_DB_PORT=5432
+      - CLAIR_DB_DATABASE=clair
+      - CLAIR_DB_USERNAME=harbor_user
+      - CLAIR_DB_PASSWORD=${DB_PASSWORD:-root123}
 
 networks:
   harbor-net:
     driver: bridge
+    internal: true
     ipam:
       config:
         - subnet: 172.20.0.0/16
     labels:
       - "com.harbor.network=internal"
+  paqbot_paqbot_network:
+    external: true

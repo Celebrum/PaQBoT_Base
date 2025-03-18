@@ -1,18 +1,15 @@
 # Configuration file of Harbor
 
 # The IP address or hostname to access admin UI and registry service.
-hostname: harbor.local  # Changed to a more specific hostname (you can replace this with your preferred domain)
+hostname: harbor.local
 
 # http related config
 http:
-  # port for http, default is 80. If https enabled, this port will redirect to https port
   port: 8084
 
 # https related config
 https:
-  # https port for harbor, default is 443
   port: 8444
-  # The path of cert and key files for nginx
   certificate: /certs/harbor.crt
   private_key: /certs/harbor.key
 
@@ -29,19 +26,17 @@ network:
 # Remember Change the admin password from UI after launching Harbor.
 harbor_admin_password: Harbor12345  # Consider changing to something more secure
 
-# Harbor DB configuration
+# Database configuration
 database:
-  # Using ODBC connection
-  type: odbc
-  dsn: HARBOR_DB
-  username: postgres
-  password: root123  # Consider changing to something more secure
-  # The maximum number of connections in the idle connection pool. If it <=0, no idle connections are retained.
+  # Using existing PaQBoT database
+  type: postgresql
+  host: paqbot_database
+  port: 5400
+  username: harbor_user
+  password: ${DB_PASSWORD:-root123}
   max_idle_conns: 50
-  # The maximum number of open connections to the database. If it <= 0, then there is no limit on the number of open connections.
   max_open_conns: 100
-  conn_max_lifetime: 5m
-  conn_max_idle_time: 0
+  database: harbor
 
 # Docker configuration
 docker:
@@ -86,8 +81,18 @@ jobservice:
   logger_sweeper_duration: 1 #days
 
 notification:
-  webhook_job_max_retry: 3
-  webhook_job_http_client_timeout: 3 #seconds
+  webhook_job_max_retry: 10
+  webhook_job_http_client_timeout: 30
+  endpoints:
+    - url: http://paqbot_engine:5100/notifications
+      auth_header: Bearer ${PAQBOT_TOKEN:-default-token}
+      timeout: 30s
+      events:
+        - pushImage
+        - pullImage
+        - deleteImage
+        - scanningCompleted
+        - scanningFailed
 
 # Enable purge _upload directories
 upload_purging:
@@ -102,6 +107,46 @@ swarm_mode:
   worker_nodes: 1
   manager_nodes: 1
 
+# Content filtering and security
+security:
+  content_trust:
+    enabled: true
+    token_auth: true
+    notary_server: content-trust:4443
+  vulnerability_scanning:
+    enabled: true
+    auto_scan: true
+    scanner:
+      - name: "Clair"
+        url: "http://content-filter:6060"
+        adapter: "clair"
+  content_validation:
+    enabled: true
+    required: true
+    providers:
+      - name: "PaQBoT Engine"
+        endpoint: "http://paqbot_engine:5100/validate"
+        timeout: 30s
+        required: true
+
+# PaQBoT Integration
+paqbot:
+  engine_url: "http://paqbot_engine:5100"
+  database_url: "postgresql://paqbot_user:securepassword@paqbot_database:5400/paqbot"
+  content_filtering:
+    enabled: true
+    cache_ttl: 3600
+    block_unknown: true
+    categories:
+      - name: "malware"
+        action: "block"
+      - name: "adult"
+        action: "block"
+      - name: "violence"
+        action: "block"
+      - name: "social"
+        action: "monitor"
+
 # Registry configuration
 registry:
   relative_urls: true
@@ -114,15 +159,22 @@ registry:
         age: 168h
         interval: 24h
         dryrun: false
+  middlewares:
+    - name: "content-trust"
+      options:
+        notary_server: "content-trust:4443"
+    - name: "paqbot-filter"
+      options:
+        engine_url: "http://paqbot_engine:5100/filter"
 
-# Configure external database
+# Configure external services
 external_database:
   harbor:
-    host: harbor-db
-    port: 5432
+    host: paqbot_database
+    port: 5400
     db_name: harbor
-    username: postgres
-    password: root123
+    username: harbor_user
+    password: ${DB_PASSWORD:-root123}
     ssl_mode: disable
     max_idle_conns: 100
     max_open_conns: 900
