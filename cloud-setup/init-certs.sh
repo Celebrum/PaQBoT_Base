@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Make sure we're in the right directory
+cd "$(dirname "$0")"
+
 # Create directories
 mkdir -p certs
 mkdir -p /data/harbor/{core,database,registry,redis}
@@ -9,6 +12,11 @@ mkdir -p /data/harpoon
 chmod 700 /data/harbor/database
 chmod -R 755 /data/harbor/{core,registry,redis}
 chmod -R 755 /data/harpoon
+
+# Ensure certs directory exists and we have write permission
+sudo mkdir -p ./certs
+sudo chown $USER:$USER ./certs
+chmod 755 ./certs
 
 # Check if certificates exist in Windows cert path
 WINDOWS_CERT_PATH="/mnt/c/ProgramData/Microsoft/Crypto/RSA"
