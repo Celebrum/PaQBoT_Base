@@ -19,10 +19,11 @@ sudo mkdir -p ./certs
 
 # Set correct ownership and permissions
 echo "Setting permissions..."
-sudo chown -R $USER:$USER /data/harbor
+CURRENT_USER=$(whoami)
+sudo chown -R $CURRENT_USER:$CURRENT_USER /data/harbor
 sudo chmod -R 755 /data/harbor
 sudo chmod 700 /data/harbor/database
-sudo chown -R $USER:$USER ./certs
+sudo chown -R $CURRENT_USER:$CURRENT_USER ./certs
 sudo chmod -R 755 ./certs
 
 # Generate certificates
@@ -36,12 +37,8 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 chmod 644 certs/harbor.crt
 chmod 600 certs/harbor.key
 
-# Export current user ID and group ID for docker-compose
-export UID=$(id -u)
-export GID=$(id -g)
-
 echo "Starting Harbor services..."
-docker-compose up -d
+sudo docker-compose up -d
 
 echo "Setup complete. Please wait a few moments for all services to start."
 echo "You can check the status with: docker-compose ps"
