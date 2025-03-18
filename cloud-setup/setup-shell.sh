@@ -21,6 +21,40 @@ sudo dnf install -y \
 sudo curl -L https://raw.githubusercontent.com/docker/compose/master/contrib/completion/bash/docker-compose -o /usr/share/bash-completion/completions/docker-compose
 sudo curl -L https://raw.githubusercontent.com/docker/cli/master/contrib/completion/bash/docker -o /usr/share/bash-completion/completions/docker
 
+# Create required directories
+mkdir -p /home/jean-sebastien/PaQBoT_Base/cloud-setup/certs
+
+# Configure ODBC
+sudo bash -c 'cat > /etc/odbcinst.ini << EOL
+[ODBC Driver 17 for SQL Server]
+Description=Microsoft ODBC Driver 17 for SQL Server
+Driver=/opt/microsoft/msodbcsql17/lib64/libmsodbcsql-17.10.so.1.1
+UsageCount=1
+EOL'
+
+# Configure Docker buildx
+mkdir -p /home/jean-sebastien/.docker/buildx
+cat > /home/jean-sebastien/.docker/buildx/buildx.toml << EOL
+[registry."docker.io"]
+  mirrors = ["harbor.local:443"]
+
+[registry."harbor.local:443"]
+  http = true
+  insecure = true
+
+[[worker.oci.gcpolicy]]
+  keepDuration = "48h"
+  keepBytes = 10000000000
+
+[worker.oci]
+  enabled = true
+  platforms = ["linux/amd64", "linux/arm64"]
+
+[worker.containerd]
+  enabled = true
+  platforms = ["linux/amd64", "linux/arm64"]
+EOL
+
 # Create new bashrc
 cat > ~/.bashrc << 'EOL'
 # If not running interactively, don't do anything
@@ -100,6 +134,37 @@ parse_git_branch() {
 # Enhanced prompt with git branch
 PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]$(parse_git_branch)\[\033[00m\]\$ '
 
+# Source global definitions
+if [ -f /etc/bashrc ]; then
+    . /etc/bashrc
+fi
+
+# Enable bash completion
+if ! shopt -oq posix; then
+    if [ -f /usr/share/bash-completion/bash_completion ]; then
+        . /usr/share/bash-completion/bash_completion
+    elif [ -f /etc/bash_completion ]; then
+        . /etc/bash_completion
+    fi
+fi
+
+# Load Docker completions
+for f in /usr/share/bash-completion/completions/docker*; do
+    if [ -f "$f" ]; then
+        . "$f"
+    fi
+done
+
+# Source bash_profile
+if [ -f ~/.bash_profile ]; then
+    . ~/.bash_profile
+fi
+
+# Enhanced prompt with git branch
+parse_git_branch() {
+    git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/(\1)/'
+}
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]$(parse_git_branch)\[\033[00m\]\$ '
 EOL
 
 # Create inputrc for better completion
@@ -145,7 +210,77 @@ EOL
 # Make the script executable
 chmod +x ~/.bashrc
 
-# Source the new configuration
-source ~/.bashrc
+# Configure bash environment
+cat > /home/jean-sebastien/.bash_profile << 'EOL'
+# Source bashrc
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
 
-echo "Shell setup complete. Please restart your terminal or run 'source ~/.bashrc' to apply changes."
+# Environment variables
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+export BUILDKIT_PROGRESS=plain
+export DOCKER_HOST=unix:///var/run/docker.sock
+export DOCKER_CONTEXT=default
+export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.local/bin
+
+# Docker aliases
+alias d='docker'
+alias dc='docker-compose'
+alias dps='docker ps'
+alias dim='docker images'
+alias dnet='docker network'
+alias dbuild='docker buildx build'
+
+# Auto CD to project directory
+if [ "$PWD" = "$HOME" ]; then
+    cd /home/jean-sebastien/PaQBoT_Base
+fi
+EOL
+
+# Set proper permissions
+chmod 644 /home/jean-sebastien/.bash_profile
+chmod 644 /home/jean-sebastien/.bashrc
+chmod -R 755 /home/jean-sebastien/PaQBoT_Base/cloud-setup
+
+# Configure Docker daemon for BuildKit and Harbor
+sudo mkdir -p /etc/docker
+sudo bash -c 'cat > /etc/docker/daemon.json << EOL
+{
+    "insecure-registries": [
+        "harbor.local:443",
+        "hubproxy.docker.internal:5555",
+        "::1/128",
+        "127.0.0.0/8"
+    ],
+    "experimental": false,
+    "features": {
+        "buildkit": true
+    },
+    "builder": {
+        "gc": {
+            "enabled": true,
+            "defaultKeepStorage": "20GB"
+        }
+    },
+    "default-runtime": "runc",
+    "runtimes": {
+        "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    },
+    "swarm": {
+        "default-addr-pool": ["10.0.0.0/8"],
+        "subnet-size": 24
+    },
+    "log-driver": "json-file",
+    "storage-driver": "overlayfs"
+}
+EOL'
+
+# Source the new configuration
+source /home/jean-sebastien/.bash_profile
+
+echo "Shell environment setup complete. Please restart your terminal for all changes to take effect."
