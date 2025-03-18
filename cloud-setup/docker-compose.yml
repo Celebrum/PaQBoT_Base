@@ -8,6 +8,122 @@ services:
     volumes:
       - /data/harbor/core:/data
       - ./certs:/certs:ro
+      - type: bind
+        source: ../harbor.yml
+        target: /etc/harbor/harbor.yml
+    depends_on:
+      - harbor-db
+      - redis
+    environment:
+      CORE_SECRET: change-this-password
+      REGISTRY_URL: http://registry:5000
+      PORTAL_URL: http://portal:8080
+      TOKEN_SERVICE_URL: http://core:8080/service/token
+      HARBOR_ADMIN_PASSWORD: Harbor12345
+
+  harbor-db:
+    image: goharbor/harbor-db:v2.10.0
+    container_name: harbor-db
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/database:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: root123
+
+  registry:
+    image: goharbor/registry-photon:v2.10.0
+    container_name: registry
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/registry:/storage
+      - ./certs:/certs:ro
+    environment:
+      REGISTRY_HTTP_SECRET: change-this-secret
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+
+  redis:
+    image: goharbor/redis-photon:v2.10.0
+    container_name: redis
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/redis:/var/lib/redis
+
+networks:
+  harbor:
+    driver: overlay
+    attachable: trueservices:
+  harbor-core:
+    image: goharbor/harbor-core:v2.10.0
+    container_name: harbor-core
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/core:/data
+      - ./certs:/certs:ro
+      - ../harbor.yml:/etc/harbor/harbor.yml:ro
+    depends_on:
+      - harbor-db
+      - redis
+    environment:
+      - CORE_SECRET=change-this-password
+      - REGISTRY_URL=http://registry:5000
+      - PORTAL_URL=http://portal:8080
+      - TOKEN_SERVICE_URL=http://core:8080/service/token
+      - HARBOR_ADMIN_PASSWORD=Harbor12345
+
+  harbor-db:
+    image: goharbor/harbor-db:v2.10.0
+    container_name: harbor-db
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/database:/var/lib/postgresql/data:rw
+    environment:
+      - POSTGRES_PASSWORD=root123
+
+  registry:
+    image: goharbor/registry-photon:v2.10.0
+    container_name: registry
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/registry:/storage:rw
+      - ./certs:/certs:ro
+    environment:
+      - REGISTRY_HTTP_SECRET=change-this-secret
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+
+  redis:
+    image: goharbor/redis-photon:v2.10.0
+    container_name: redis
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/redis:/var/lib/redis:rw
+
+networks:
+  harbor:
+    driver: overlay
+    attachable: trueservices:
+  harbor-core:
+    image: goharbor/harbor-core:v2.10.0
+    container_name: harbor-core
+    restart: always
+    networks:
+      - harbor
+    volumes:
+      - /data/harbor/core:/data
+      - ./certs:/certs:ro
       - ../harbor.yml:/etc/harbor/harbor.yml:ro
     depends_on:
       - harbor-db
