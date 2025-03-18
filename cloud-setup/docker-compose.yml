@@ -56,24 +56,6 @@ services:
     networks:
       - harbor-net
 
-  harpoon:
-    image: goharbor/harpoon:latest
-    container_name: harpoon
-    restart: always
-    volumes:
-      - /data/harpoon:/data
-      - ./certs:/certs
-      - type: bind
-        source: ../harpoon.yml
-        target: /etc/harpoon/config.yml
-    networks:
-      - harbor-net
-    depends_on:
-      - harbor-core
-    environment:
-      - HARPOON_HARBOR_URL=https://harbor-core:443
-      - HARPOON_LOG_LEVEL=info
-
 networks:
   harbor-net:
     driver: overlay
