@@ -68,21 +68,61 @@ cat > /etc/buildkit/buildkitd.toml << EOL
   keepBytes = 10000000000
 EOL
 
-# Configure BuildKit
-echo "Configuring specific BuildKit builder..."
-docker buildx create \
-  --name harbor-builder \
+# Remove existing buildx builders
+echo "Removing existing buildx builders..."
+docker buildx rm -f harbor-builder || true
+docker buildx rm -f default || true
+
+# Create the new builder using the specific moby/buildkit version
+echo "Creating new buildx builder..."
+docker buildx create --name harbor-builder \
   --driver-opt network=host \
+  --driver docker-container \
   --buildkitd-flags '--allow-insecure-entitlement security.insecure' \
   --use \
   --platform=linux/amd64,linux/arm64 \
+  --config /etc/buildkit/buildkitd.toml \
   moby/buildkit:buildx-stable-1
+
+# Configure buildkit
+mkdir -p /etc/buildkit
+cat > /etc/buildkit/buildkitd.toml << EOL
+debug = true
+[registry."docker.io"]
+  mirrors = ["harbor.local:443"]
+
+[registry."harbor.local:443"]
+  http = true
+  insecure = true
+
+[worker.oci]
+  enabled = true
+  platforms = ["linux/amd64", "linux/arm64"]
+  gc = true
+  gckeepstorage = 20000
+
+[worker.containerd]
+  enabled = true
+  platforms = ["linux/amd64", "linux/arm64"]
+
+[[worker.oci.gcpolicy]]
+  keepDuration = "48h"
+  keepBytes = 10000000000
+
+[grpc]
+  address = ["tcp://0.0.0.0:1234"]
+EOL
 
 # Configure Docker daemon for Harbor
 mkdir -p /etc/docker
 cat > /etc/docker/daemon.json << EOL
 {
-    "insecure-registries": ["harbor.local:443"],
+    "insecure-registries": [
+        "harbor.local:443",
+        "hubproxy.docker.internal:5555",
+        "::1/128",
+        "127.0.0.0/8"
+    ],
     "experimental": true,
     "features": {
         "buildkit": true
@@ -113,4 +153,18 @@ chmod -R 755 /data/harbor
 chmod 700 /data/harbor/database
 chmod -R 755 /data/harpoon
 
+# Set up environment variables
+cat > /etc/profile.d/docker-env.sh << EOL
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+export BUILDKIT_PROGRESS=plain
+export DOCKER_HOST=unix:///var/run/docker.sock
+export BUILDX_CONFIG=/etc/buildkit/buildkitd.toml
+export BUILDX_BUILDER=harbor-builder
+EOL
+
+# Source the new environment
+source /etc/profile.d/docker-env.sh
+
+echo "BuildKit configuration complete!"
 echo "Dependencies installation complete!"
