@@ -19,7 +19,7 @@ services:
       harbor-net:
         aliases:
           - harbor-core.local
-      paqbot_paqbot_network:
+      paqbot_network:
         aliases:
           - harbor-core.paqbot
     depends_on:
@@ -51,7 +51,7 @@ services:
       harbor-net:
         aliases:
           - harbor-db.local
-      paqbot_paqbot_network:
+      paqbot_network:
         aliases:
           - harbor-db.paqbot
     environment:
@@ -71,7 +71,7 @@ services:
       harbor-net:
         aliases:
           - registry.local
-      paqbot_paqbot_network:
+      paqbot_network:
         aliases:
           - registry.paqbot
     environment:
@@ -91,7 +91,7 @@ services:
       harbor-net:
         aliases:
           - redis.local
-      paqbot_paqbot_network:
+      paqbot_network:
         aliases:
           - redis.paqbot
 
@@ -101,7 +101,7 @@ services:
     restart: always
     networks:
       - harbor-net
-      - paqbot_paqbot_network
+      - paqbot_network
     depends_on:
       - harbor-db
     environment:
@@ -114,7 +114,7 @@ services:
     restart: always
     networks:
       - harbor-net
-      - paqbot_paqbot_network
+      - paqbot_network
     depends_on:
       - harbor-db
       - harbor-core
@@ -127,14 +127,30 @@ services:
       - CLAIR_DB_USERNAME=harbor_user
       - CLAIR_DB_PASSWORD=${DB_PASSWORD:-root123}
 
-networks:
-  harbor-net:
-    driver: bridge
-    internal: true
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-    labels:
-      - "com.harbor.network=internal"
-  paqbot_paqbot_network:
-    external: true
+  paqbot_engine:
+    image: paqbot_engine:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.engine
+    ports:
+      - "5000:5000"  # Aligned with engine.py and Dockerfile.engine
+    networks:
+      - paqbot_network
+    environment:
+      - ENV=production
+    restart: unless-stopped
+
+  paqbot_server:
+    image: paqbot_server:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "8050:8050"  # Removed unnecessary port translation
+    networks:
+      - paqbot_network
+    environment:
+      - ENV=production
+    restart: unless-stopped
+    depends_on:
+      - paqbot_engine
