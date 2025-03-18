@@ -1,0 +1,52 @@
+version: "1.0"
+
+# Harpoon service configuration
+service:
+  port: 8080
+  log_level: info
+  tls:
+    enabled: true
+    certificate: /certs/harpoon.crt
+    private_key: /certs/harpoon.key
+
+# Harbor integration
+harbor:
+  url: https://harbor.local
+  username: admin
+  password: Harbor12345  # Should match the password in harbor.yml
+  insecure: false  # Set to true if using self-signed certificates during testing
+
+# Certification integration with Windows Cert Kit
+certificates:
+  windows_cert_path: /certs/windows
+  auto_import: true
+  validation:
+    enabled: true
+    expiry_warning_days: 30
+
+# Scanning configuration
+scanning:
+  enabled: true
+  providers:
+    - name: trivy
+      enabled: true
+      config:
+        severity_threshold: MEDIUM
+
+# Storage configuration
+storage:
+  path: /data/harpoon
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Runs at 2 AM daily
+    retention_days: 7
+
+# Authentication settings
+auth:
+  token_expiry: 24h
+  ldap:
+    enabled: false
+    # Uncomment and configure if you want to use LDAP
+    # url: ldap://your-ldap-server:389
+    # base_dn: "dc=example,dc=com"
+    # filter: "(objectClass=person)"
