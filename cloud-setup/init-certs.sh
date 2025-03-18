@@ -35,11 +35,12 @@ if [ ! -f "certs/harbor.crt" ] || [ ! -f "certs/harbor.key" ]; then
         -keyout certs/harbor.key -out certs/harbor.crt \
         -subj "/C=US/ST=State/L=City/O=Organization/CN=harbor.local" \
         -addext "subjectAltName=DNS:harbor.local,DNS:localhost,IP:127.0.0.1"
-    echo "Self-signed certificates generated for Harbor"
+    
+    # Set proper permissions for the generated certificates
+    chmod 644 certs/harbor.crt
+    chmod 600 certs/harbor.key
+    
+    echo "Self-signed certificates generated successfully"
 fi
-
-# Set proper permissions for certificates
-chmod 644 certs/*.crt
-chmod 600 certs/*.key
 
 echo "Certificate initialization complete"
