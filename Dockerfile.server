@@ -13,4 +13,13 @@ ENV PYTHONUNBUFFERED=1
 ENV FLASK_APP=server.py
 ENV FLASK_ENV=production
 
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8050/health || exit 1
+
+# Use entrypoint script for better error handling
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["python", "server.py"]
