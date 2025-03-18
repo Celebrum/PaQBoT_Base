@@ -1,9 +1,46 @@
 # Requires -RunAsAdministrator
 
 $ErrorActionPreference = "Stop"
+$Script:ProcessTracker = @{}
+$Script:LogFile = "port-config.log"
 
-Write-Host "PaQBoT Port Cleanup and Firewall Configuration" -ForegroundColor Green
-Write-Host "=============================================" -ForegroundColor Green
+# Enable logging
+function Write-Log {
+    param($Message)
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    "$timestamp - $Message" | Tee-Object -FilePath $Script:LogFile -Append
+    Write-Host $Message
+}
+
+# Cleanup function for script termination
+function Cleanup {
+    Write-Log "Starting cleanup process..."
+    
+    foreach ($port in $Script:ProcessTracker.Keys) {
+        try {
+            $processId = $Script:ProcessTracker[$port]
+            if (Get-Process -Id $processId -ErrorAction SilentlyContinue) {
+                Write-Log "Cleaning up process on port $port (PID: $processId)"
+                Stop-Process -Id $processId -Force
+            }
+        } catch {
+            Write-Log "Error cleaning up port $port: $_"
+        }
+    }
+    
+    Write-Log "Cleanup completed"
+}
+
+# Register cleanup on script exit
+trap {
+    Write-Log "Script interrupted"
+    Cleanup
+    exit 1
+}
+
+# Main script starts here
+Write-Log "PaQBoT Port Cleanup and Firewall Configuration"
+Write-Log "============================================="
 
 # Define required ports and their services
 $requiredPorts = @{
@@ -48,78 +85,124 @@ $requiredPorts = @{
 # Function to check if a port is in use
 function Test-PortInUse {
     param($port)
-    
-    $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-                  Where-Object LocalPort -eq $port
-    
-    return $null -ne $connections
+    try {
+        $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+                      Where-Object LocalPort -eq $port
+        return $null -ne $connections
+    } catch {
+        Write-Log "Error checking port $port: $_"
+        return $false
+    }
 }
 
-# Function to stop process using a port
+# Function to gracefully stop process using a port
 function Stop-ProcessOnPort {
     param($port)
-    
-    $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-                  Where-Object LocalPort -eq $port
-    
-    foreach ($conn in $connections) {
-        $process = Get-Process -Id $conn.OwningProcess
-        Write-Host "Stopping process: $($process.ProcessName) (PID: $($process.Id)) on port $port"
-        Stop-Process -Id $process.Id -Force
+    try {
+        $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+                      Where-Object LocalPort -eq $port
+        
+        foreach ($conn in $connections) {
+            $process = Get-Process -Id $conn.OwningProcess
+            Write-Log "Stopping process: $($process.ProcessName) (PID: $($process.Id)) on port $port"
+            
+            # Try graceful shutdown first
+            $process.CloseMainWindow()
+            Start-Sleep -Seconds 2
+            
+            if (!$process.HasExited) {
+                Stop-Process -Id $process.Id -Force
+            }
+            
+            # Remove from process tracker
+            $Script:ProcessTracker.Remove($port)
+        }
+    } catch {
+        Write-Log "Error stopping process on port $port: $_"
     }
 }
 
-# Check and free required ports
-Write-Host "`nChecking required ports..." -ForegroundColor Cyan
+# Function to open port
+function Open-Port {
+    param($port, $service)
+    try {
+        Write-Log "Opening port $port for $service..."
+        $ruleName = "PaQBoT-$($service.Replace(' ', ''))"
+        
+        # Create firewall rules
+        New-NetFirewallRule -DisplayName "$ruleName-In" -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
+        New-NetFirewallRule -DisplayName "$ruleName-Out" -Direction Outbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
+        
+        Write-Log "Successfully opened port $port"
+        return $true
+    } catch {
+        Write-Log "Error opening port $port: $_"
+        return $false
+    }
+}
+
+# Function to close port
+function Close-Port {
+    param($port, $service)
+    try {
+        Write-Log "Closing port $port for $service..."
+        $ruleName = "PaQBoT-$($service.Replace(' ', ''))"
+        
+        # Remove firewall rules
+        Get-NetFirewallRule -DisplayName "$ruleName-*" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+        
+        # Stop any process using the port
+        if (Test-PortInUse $port) {
+            Stop-ProcessOnPort $port
+        }
+        
+        Write-Log "Successfully closed port $port"
+        return $true
+    } catch {
+        Write-Log "Error closing port $port: $_"
+        return $false
+    }
+}
+
+# Check and manage required ports
+Write-Log "`nChecking required ports..."
 foreach ($port in $requiredPorts.Keys) {
     $service = $requiredPorts[$port]
-    Write-Host "Checking port $port ($service)..." -NoNewline
+    Write-Log "Managing port $port ($service)..."
     
     if (Test-PortInUse $port) {
-        Write-Host " IN USE" -ForegroundColor Red
-        $response = Read-Host "Do you want to free this port? (Y/N)"
+        Write-Log "Port $port is IN USE"
+        $response = Read-Host "Do you want to close this port? (Y/N)"
         if ($response -eq 'Y') {
-            Stop-ProcessOnPort $port
-            Write-Host "Port $port has been freed" -ForegroundColor Green
+            Close-Port $port $service
         }
     } else {
-        Write-Host " AVAILABLE" -ForegroundColor Green
+        Write-Log "Port $port is AVAILABLE"
+        $response = Read-Host "Do you want to open this port? (Y/N)"
+        if ($response -eq 'Y') {
+            Open-Port $port $service
+        }
     }
-}
-
-# Configure firewall rules
-Write-Host "`nConfiguring firewall rules..." -ForegroundColor Cyan
-
-# Remove existing PaQBoT rules
-Get-NetFirewallRule -DisplayName "PaQBoT-*" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
-
-# Create new firewall rules for each port
-foreach ($port in $requiredPorts.Keys) {
-    $service = $requiredPorts[$port]
-    $ruleName = "PaQBoT-$($service.Replace(' ', ''))"
-    
-    # Inbound rule
-    Write-Host "Creating inbound rule for $service (Port $port)..." -NoNewline
-    New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
-    Write-Host " DONE" -ForegroundColor Green
-    
-    # Outbound rule
-    Write-Host "Creating outbound rule for $service (Port $port)..." -NoNewline
-    New-NetFirewallRule -DisplayName $ruleName -Direction Outbound -Protocol TCP -LocalPort $port -Action Allow | Out-Null
-    Write-Host " DONE" -ForegroundColor Green
 }
 
 # Docker network configuration check
-Write-Host "`nChecking Docker network configuration..." -ForegroundColor Cyan
+Write-Log "`nChecking Docker network configuration..."
 $dockerNetwork = "paqbot_network"
-docker network inspect $dockerNetwork 2>&1 | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Creating Docker network $dockerNetwork..." -NoNewline
-    docker network create $dockerNetwork
-    Write-Host " DONE" -ForegroundColor Green
-} else {
-    Write-Host "Docker network $dockerNetwork already exists" -ForegroundColor Green
+try {
+    docker network inspect $dockerNetwork 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "Creating Docker network $dockerNetwork..."
+        docker network create $dockerNetwork
+        Write-Log "Docker network created successfully"
+    } else {
+        Write-Log "Docker network $dockerNetwork already exists"
+    }
+} catch {
+    Write-Log "Error managing Docker network: $_"
 }
 
-Write-Host "`nPort cleanup and firewall configuration completed!" -ForegroundColor Green
-Write-Host "Docker and IIS services are properly configured."
+Write-Log "`nPort cleanup and firewall configuration completed!"
+Write-Log "Docker and IIS services are properly configured."
+
+# Final cleanup on normal exit
+Cleanup
