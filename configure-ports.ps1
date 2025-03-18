@@ -48,44 +48,44 @@ Write-Log "============================================="
 
 # Define required ports and their services
 $requiredPorts = @{
-    # Docker Services
+    # PaQBoT Core Services (Essential)
     5100 = "PaQBoTEngine"
     8050 = "PaQBoTServerInternal"
     8051 = "PaQBoTServerExternal"
     5400 = "PaQBoTDatabase"
+    5432 = "PostgreSQL"
     
-    # IIS Services
-    80 = "IISDefault"
+    # Harbor Services
+    80   = "NginxSwitchSplitterRelay"  # Changed from IISDefault to NginxSwitchSplitterRelay
+    8084 = "HarborHTTP"
+    8444 = "HarborHTTPS"
+    
+    # Development Tools
+    50080 = "DevToolsHTTP"
+    50443 = "DevToolsHTTPS"
+    
+    # Neural Network Services
     8080 = "NeuralNetworkCore"
     8081 = "QuantumTensor"
     8082 = "MindsDBBridge"
     8083 = "PersonaManager"
-    50080 = "DevToolsHTTP"
-    50443 = "DevToolsHTTPS"
     
-    # Core Services (from previous config)
+    # Message Queue and Cache
+    5672 = "RabbitMQ"
+    6379 = "Redis"
+    
+    # Database Services
+    27017 = "MongoDB"
+    47334 = "MindsDBServer"
+    
+    # AI Services
     6000 = "CodeProjectAIServer"
     6001 = "AppCodeProjectAIServer"
     6002 = "AppMindsDBServer"
     
-    # Hub Services (from previous config)
+    # Neural Hub Services (SeCuReDmE)
     6010 = "CeLeBrUmHub"
     6011 = "SenNnT-iHub"
-    6012 = "EbaAaZHub"
-    6013 = "NeuUuR-oHub"
-    6014 = "ReaAaS-nHub"
-    6015 = "HippocampusHub"
-    6016 = "CorpusCallosumHub"
-    6017 = "PrefrontalCortexHub"
-    
-    # Database and Message Services
-    5432 = "PostgreSQL"
-    27017 = "MongoDB"
-    6379 = "Redis"
-    5672 = "RabbitMQ"
-    47334 = "MindsDBServer"
-}
-
 # Function to check if a port is in use
 function Test-PortInUse {
     param(
