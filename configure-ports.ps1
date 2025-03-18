@@ -24,7 +24,8 @@ function Cleanup {
                 Stop-Process -Id $processId -Force
             }
         } catch {
-            Write-Log "Error cleaning up port $port: $_"
+            $errorMessage = $_.Exception.Message
+            Write-Log "Error cleaning up port $port`: $errorMessage"
         }
     }
     
@@ -90,7 +91,8 @@ function Test-PortInUse {
                       Where-Object LocalPort -eq $port
         return $null -ne $connections
     } catch {
-        Write-Log "Error checking port $port: $_"
+        $errorMessage = $_.Exception.Message
+        Write-Log "Error checking port $port`: $errorMessage"
         return $false
     }
 }
@@ -118,7 +120,8 @@ function Stop-ProcessOnPort {
             $Script:ProcessTracker.Remove($port)
         }
     } catch {
-        Write-Log "Error stopping process on port $port: $_"
+        $errorMessage = $_.Exception.Message
+        Write-Log "Error stopping process on port $port`: $errorMessage"
     }
 }
 
@@ -136,7 +139,8 @@ function Open-Port {
         Write-Log "Successfully opened port $port"
         return $true
     } catch {
-        Write-Log "Error opening port $port: $_"
+        $errorMessage = $_.Exception.Message
+        Write-Log "Error opening port $port`: $errorMessage"
         return $false
     }
 }
@@ -153,13 +157,14 @@ function Close-Port {
         
         # Stop any process using the port
         if (Test-PortInUse $port) {
-            Stop-ProcessOnPort $port
+            Stop-ProcessOnPort($port)
         }
         
         Write-Log "Successfully closed port $port"
         return $true
     } catch {
-        Write-Log "Error closing port $port: $_"
+        $errorMessage = $_.Exception.Message
+        Write-Log "Error closing port $port`: $errorMessage"
         return $false
     }
 }
@@ -170,17 +175,17 @@ foreach ($port in $requiredPorts.Keys) {
     $service = $requiredPorts[$port]
     Write-Log "Managing port $port ($service)..."
     
-    if (Test-PortInUse $port) {
+    if (Test-PortInUse($port)) {
         Write-Log "Port $port is IN USE"
         $response = Read-Host "Do you want to close this port? (Y/N)"
         if ($response -eq 'Y') {
-            Close-Port $port $service
+            Close-Port($port, $service)
         }
     } else {
         Write-Log "Port $port is AVAILABLE"
         $response = Read-Host "Do you want to open this port? (Y/N)"
         if ($response -eq 'Y') {
-            Open-Port $port $service
+            Open-Port($port, $service)
         }
     }
 }
@@ -198,7 +203,8 @@ try {
         Write-Log "Docker network $dockerNetwork already exists"
     }
 } catch {
-    Write-Log "Error managing Docker network: $_"
+    $errorMessage = $_.Exception.Message
+    Write-Log "Error managing Docker network: $errorMessage"
 }
 
 Write-Log "`nPort cleanup and firewall configuration completed!"
