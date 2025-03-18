@@ -85,7 +85,10 @@ $requiredPorts = @{
 
 # Function to check if a port is in use
 function Test-PortInUse {
-    param($port)
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$port
+    )
     try {
         $connections = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
                       Where-Object LocalPort -eq $port
@@ -127,16 +130,21 @@ function Stop-ProcessOnPort {
 
 # Function to open port
 function Open-Port {
-    param($port, $service)
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$port,
+        [Parameter(Mandatory=$false)]
+        [string]$service = "Generic"
+    )
     try {
         Write-Log "Opening port $port for $service..."
         
-        # Check if service name is null or empty
-        if ([string]::IsNullOrEmpty($service)) {
-            $service = "Generic"
+        # Sanitize service name for firewall rule
+        $sanitizedService = $service.Replace(' ', '').Replace('-', '').Replace('_', '')
+        if ([string]::IsNullOrEmpty($sanitizedService)) {
+            $sanitizedService = "Generic"
         }
-        
-        $ruleName = "PaQBoT-$($service.Replace(' ', ''))"
+        $ruleName = "PaQBoT-$sanitizedService"
         
         # Check if rules already exist
         $existingRules = Get-NetFirewallRule -DisplayName "$ruleName-*" -ErrorAction SilentlyContinue
@@ -147,20 +155,20 @@ function Open-Port {
         
         # Create new firewall rules
         Write-Log "Creating inbound rule for port $port"
-        New-NetFirewallRule -DisplayName "$ruleName-In" `
-                          -Direction Inbound `
-                          -Protocol TCP `
-                          -LocalPort $port `
-                          -Action Allow `
-                          -Description "PaQBoT inbound port $port for $service" | Out-Null
+        $params = @{
+            DisplayName = "$ruleName-In"
+            Direction = "Inbound"
+            Protocol = "TCP"
+            LocalPort = $port
+            Action = "Allow"
+            Description = "PaQBoT inbound port $port for $service"
+        }
+        New-NetFirewallRule @params | Out-Null
         
         Write-Log "Creating outbound rule for port $port"
-        New-NetFirewallRule -DisplayName "$ruleName-Out" `
-                          -Direction Outbound `
-                          -Protocol TCP `
-                          -LocalPort $port `
-                          -Action Allow `
-                          -Description "PaQBoT outbound port $port for $service" | Out-Null
+        $params.DisplayName = "$ruleName-Out"
+        $params.Direction = "Outbound"
+        New-NetFirewallRule @params | Out-Null
         
         Write-Log "Successfully opened port $port"
         return $true
@@ -173,17 +181,32 @@ function Open-Port {
 
 # Function to close port
 function Close-Port {
-    param($port, $service)
+    param(
+        [Parameter(Mandatory=$true)]
+        [int]$port,
+        [Parameter(Mandatory=$false)]
+        [string]$service = "Generic"
+    )
     try {
         Write-Log "Closing port $port for $service..."
-        $ruleName = "PaQBoT-$($service.Replace(' ', ''))"
+        
+        # Sanitize service name for firewall rule
+        $sanitizedService = $service.Replace(' ', '').Replace('-', '').Replace('_', '')
+        if ([string]::IsNullOrEmpty($sanitizedService)) {
+            $sanitizedService = "Generic"
+        }
+        $ruleName = "PaQBoT-$sanitizedService"
         
         # Remove firewall rules
-        Get-NetFirewallRule -DisplayName "$ruleName-*" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+        $existingRules = Get-NetFirewallRule -DisplayName "$ruleName-*" -ErrorAction SilentlyContinue
+        if ($existingRules) {
+            Write-Log "Removing rules for $ruleName"
+            $existingRules | Remove-NetFirewallRule
+        }
         
         # Stop any process using the port
         if (Test-PortInUse $port) {
-            Stop-ProcessOnPort($port)
+            Stop-ProcessOnPort -port $port
         }
         
         Write-Log "Successfully closed port $port"
