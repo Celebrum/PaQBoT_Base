@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    networks:
+      - cloud-net
+
+networks:
+  cloud-net:
+    driver: overlay
