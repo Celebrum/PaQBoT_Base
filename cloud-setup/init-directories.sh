@@ -7,6 +7,25 @@ sudo mkdir -p /data/harbor/registry
 sudo mkdir -p /data/harbor/redis
 sudo mkdir -p ./certs
 
+# Get current user for ownership
+CURRENT_USER=$(whoami)
+
+# Set permissions and ownership
+sudo chown -R $CURRENT_USER:$CURRENT_USER /data/harbor
+sudo chmod -R 755 /data/harbor
+sudo chmod 700 /data/harbor/database
+sudo chown -R $CURRENT_USER:$CURRENT_USER ./certs
+sudo chmod 755 ./certs
+
+echo "Directories created and permissions set successfully"#!/bin/bash
+
+# Create base directories
+sudo mkdir -p /data/harbor/core
+sudo mkdir -p /data/harbor/database
+sudo mkdir -p /data/harbor/registry
+sudo mkdir -p /data/harbor/redis
+sudo mkdir -p ./certs
+
 # Set permissions that allow docker containers to access
 sudo chown -R 10000:10000 /data/harbor
 sudo chmod -R 755 /data/harbor
