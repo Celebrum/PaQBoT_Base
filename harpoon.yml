@@ -16,6 +16,24 @@ harbor:
   password: Harbor12345  # Should match the password in harbor.yml
   insecure: false  # Set to true if using self-signed certificates during testing
 
+# Database configuration using ODBC
+database:
+  type: odbc
+  dsn: HARBOR_DB
+  max_idle_conns: 100
+  max_open_conns: 900
+  conn_max_lifetime: 5m
+
+# Docker configuration
+docker:
+  builder: default
+  buildkit_enabled: true
+  platforms:
+    - linux/amd64
+    - linux/arm64
+  insecure_registries:
+    - harbor.local:443
+
 # Certification integration with Windows Cert Kit
 certificates:
   windows_cert_path: /certs/windows
@@ -39,14 +57,13 @@ storage:
   backup:
     enabled: true
     schedule: "0 2 * * *"  # Runs at 2 AM daily
-    retention_days: 7
+  retention_days: 7
 
 # Authentication settings
 auth:
   token_expiry: 24h
+  mode: database
   ldap:
     enabled: false
     # Uncomment and configure if you want to use LDAP
     # url: ldap://your-ldap-server:389
-    # base_dn: "dc=example,dc=com"
-    # filter: "(objectClass=person)"

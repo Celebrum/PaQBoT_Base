@@ -1,7 +1,6 @@
 # Configuration file of Harbor
 
 # The IP address or hostname to access admin UI and registry service.
-# DO NOT use localhost or 127.0.0.1, because Harbor needs to be accessed by external clients.
 hostname: harbor.local  # Changed to a more specific hostname (you can replace this with your preferred domain)
 
 # http related config
@@ -24,7 +23,10 @@ harbor_admin_password: Harbor12345  # Consider changing to something more secure
 
 # Harbor DB configuration
 database:
-  # The password for the user('postgres' by default) of Harbor DB. Change this before any production use.
+  # Using ODBC connection
+  type: odbc
+  dsn: HARBOR_DB
+  username: postgres
   password: root123  # Consider changing to something more secure
   # The maximum number of connections in the idle connection pool. If it <=0, no idle connections are retained.
   max_idle_conns: 100
@@ -32,6 +34,13 @@ database:
   max_open_conns: 900
   conn_max_lifetime: 5m
   conn_max_idle_time: 0
+
+# Docker configuration
+docker:
+  insecure_registry: true
+  buildkit_builder: default
+  buildx_install_url: ""  # Will use system installed buildx
+  compose_version: v2
 
 # The default data volume
 data_volume: /data
@@ -68,9 +77,6 @@ notification:
   webhook_job_max_retry: 3
   webhook_job_http_client_timeout: 3 #seconds
 
-# This attribute is for migrator to detect the version of the .cfg file, DO NOT MODIFY!
-_version: 2.12.0
-
 # Enable purge _upload directories
 upload_purging:
   enabled: true
@@ -78,7 +84,41 @@ upload_purging:
   interval: 24h
   dryrun: false
 
+# Swarm configuration
+swarm_mode:
+  enabled: true
+  worker_nodes: 1
+  manager_nodes: 1
+
+# Registry configuration
+registry:
+  relative_urls: true
+  storage:
+    filesystem:
+      rootdirectory: /storage
+    maintenance:
+      uploadpurging:
+        enabled: true
+        age: 168h
+        interval: 24h
+        dryrun: false
+
+# Configure external database
+external_database:
+  harbor:
+    host: harbor-db
+    port: 5432
+    db_name: harbor
+    username: postgres
+    password: root123
+    ssl_mode: disable
+    max_idle_conns: 100
+    max_open_conns: 900
+
 # Integration with Harpoon
 harpoon:
   enabled: true
   endpoint: http://harpoon-service:8080
+
+# This attribute is for migrator to detect the version of the .cfg file, DO NOT MODIFY!
+_version: 2.12.0
