@@ -1,4 +1,5 @@
 services:
+
   harbor-core:
     image: goharbor/harbor-core:v2.10.0
     container_name: harbor-core
