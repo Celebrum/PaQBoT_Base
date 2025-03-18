@@ -115,10 +115,5 @@ external_database:
     max_idle_conns: 100
     max_open_conns: 900
 
-# Integration with Harpoon
-harpoon:
-  enabled: true
-  endpoint: http://harpoon-service:8080
-
 # This attribute is for migrator to detect the version of the .cfg file, DO NOT MODIFY!
 _version: 2.12.0
