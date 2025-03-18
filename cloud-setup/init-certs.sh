@@ -28,6 +28,16 @@ if [ -d "$WINDOWS_CERT_PATH" ]; then
     fi
 fi
 
+# Generate self-signed certificates if they don't exist
+if [ ! -f "certs/harbor.crt" ] || [ ! -f "certs/harbor.key" ]; then
+    echo "Generating self-signed certificates for Harbor..."
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout certs/harbor.key -out certs/harbor.crt \
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=harbor.local" \
+        -addext "subjectAltName=DNS:harbor.local,DNS:localhost,IP:127.0.0.1"
+    echo "Self-signed certificates generated for Harbor"
+fi
+
 # Set proper permissions for certificates
 chmod 644 certs/*.crt
 chmod 600 certs/*.key
