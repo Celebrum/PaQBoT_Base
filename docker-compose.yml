@@ -6,6 +6,9 @@ services:
     container_name: harbor-core
     restart: always
     user: "10000:10000"
+    ports:
+      - "8084:8080"
+      - "8444:8443"
     volumes:
       - /data/harbor/core:/data:rw
       - ./certs:/certs:rw
@@ -16,20 +19,15 @@ services:
       harbor-net:
         aliases:
           - harbor-core.local
-    ports:
-      - "8080:8080"
     depends_on:
       - harbor-db
       - redis
     environment:
       - CORE_SECRET=change-this-password
       - REGISTRY_URL=http://registry:5000
-      - PORTAL_URL=http://portal:8080
-      - TOKEN_SERVICE_URL=http://core:8080/service/token
+      - PORTAL_URL=http://portal:8084
+      - TOKEN_SERVICE_URL=http://core:8084/service/token
       - HARBOR_ADMIN_PASSWORD=${HARBOR_ADMIN_PASSWORD:-Harbor12345}
-      - INTERNAL_TLS_ENABLED=true
-      - INTERNAL_TLS_KEY_PATH=/certs/harbor.key
-      - INTERNAL_TLS_CERT_PATH=/certs/harbor.crt
 
   harbor-db:
     image: goharbor/harbor-db:v2.12.0
@@ -39,7 +37,9 @@ services:
     volumes:
       - /data/harbor/database:/var/lib/postgresql/data:rw
     networks:
-      - harbor-net
+      harbor-net:
+        aliases:
+          - harbor-db.local
     environment:
       - POSTGRES_PASSWORD=${DB_PASSWORD:-root123}
 
@@ -52,7 +52,9 @@ services:
       - /data/harbor/registry:/storage:rw
       - ./certs:/certs:rw
     networks:
-      - harbor-net
+      harbor-net:
+        aliases:
+          - registry.local
     environment:
       - REGISTRY_HTTP_SECRET=change-this-secret
       - REGISTRY_STORAGE_DELETE_ENABLED=true
@@ -65,7 +67,9 @@ services:
     volumes:
       - /data/harbor/redis:/var/lib/redis:rw
     networks:
-      - harbor-net
+      harbor-net:
+        aliases:
+          - redis.local
 
 networks:
   harbor-net:
