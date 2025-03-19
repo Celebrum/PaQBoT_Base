@@ -2,68 +2,73 @@
 #
 # Targets:
 #
-# all:			prepare env, compile binaries, build images and install images
-# prepare: 		prepare env
-# compile: 		compile core and jobservice code
+# all:          prepare env, compile binaries, build images and install images
+# prepare:      prepare env
+# compile:      compile core and jobservice code
 #
 # compile_golangimage:
-#			compile from golang image
-#			for example: make compile_golangimage -e GOBUILDIMAGE= \
-#							golang:1.18.5
+#               compile from golang image
+#               for example: make compile_golangimage -e GOBUILDIMAGE=golang:1.21.5
+#
 # compile_core, compile_jobservice: compile specific binary
 #
-# build:	build Harbor docker images from photon baseimage
+# build:        build Harbor docker images from photon baseimage
 #
-# install:		include compile binaries, build images, prepare specific \
-#				version composefile and startup Harbor instance
+# install:      include compile binaries, build images, prepare specific \
+#               version composefile and startup Harbor instance
 #
-# start:		startup Harbor instance
+# start:        startup Harbor instance
 #
-# down:			shutdown Harbor instance
+# down:         shutdown Harbor instance
 #
 # package_online:
-#				prepare online install package
-#			for example: make package_online -e DEVFLAG=false\
-#							REGISTRYSERVER=reg-bj.goharbor.io \
-#							REGISTRYPROJECTNAME=harborrelease
+#               prepare online install package
+#               for example: make package_online -e DEVFLAG=false\
+#                           REGISTRYSERVER=reg-bj.goharbor.io \
+#                           REGISTRYPROJECTNAME=harborrelease
 #
 # package_offline:
-#				prepare offline install package
+#               prepare offline install package
 #
-# pushimage:	push Harbor images to specific registry server
-#			for example: make pushimage -e DEVFLAG=false REGISTRYUSER=admin \
-#							REGISTRYPASSWORD=***** \
-#							REGISTRYSERVER=reg-bj.goharbor.io/ \
-#							REGISTRYPROJECTNAME=harborrelease
-#				note**: need add "/" on end of REGISTRYSERVER. If not setting \
-#						this value will push images directly to dockerhub.
-#						 make pushimage -e DEVFLAG=false REGISTRYUSER=goharbor \
-#							REGISTRYPASSWORD=***** \
-#							REGISTRYPROJECTNAME=goharbor
+# pushimage:    push Harbor images to specific registry server
+#               for example: make pushimage -e DEVFLAG=false REGISTRYUSER=admin \
+#                           REGISTRYPASSWORD=***** \
+#                           REGISTRYSERVER=reg-bj.goharbor.io/ \
+#                           REGISTRYPROJECTNAME=harborrelease
+#               note**: need add "/" on end of REGISTRYSERVER. If not setting \
+#                       this value will push images directly to dockerhub.
+#                           make pushimage -e DEVFLAG=false REGISTRYUSER=goharbor \
+#                           REGISTRYPASSWORD=***** \
+#                           REGISTRYPROJECTNAME=goharbor
 #
 # clean:        remove binary, Harbor images, specific version docker-compose \
 #               file, specific version tag and online/offline install package
-# cleanbinary:	remove core and jobservice binary
+# cleanbinary:  remove core and jobservice binary
 # cleanbaseimage:
 #               remove the base images of Harbor images
-# cleanimage: 	remove Harbor images
+# cleanimage:   remove Harbor images
 # cleandockercomposefile:
-#				remove specific version docker-compose
+#               remove specific version docker-compose
 # cleanversiontag:
-#				cleanpackageremove specific version tag
+#               cleanpackageremove specific version tag
 # cleanpackage: remove online/offline install package
 #
 # other example:
-#	clean specific version binaries and images:
-#				make clean -e VERSIONTAG=[TAG]
-#				note**: If commit new code to github, the git commit TAG will \
-#				change. Better use this command clean previous images and \
-#				files with specific TAG.
+#   clean specific version binaries and images:
+#               make clean -e VERSIONTAG=[TAG]
+#               note**: If commit new code to github, the git commit TAG will \
+#               change. Better use this command clean previous images and \
+#               files with specific TAG.
 #   By default DEVFLAG=true, if you want to release new version of Harbor, \
-#		should setting the flag to false.
-#				make XXXX -e DEVFLAG=false
+#       should setting the flag to false.
+#               make XXXX -e DEVFLAG=false
 
+# Ensure we use bash for shell commands
 SHELL := /bin/bash
+ifeq ($(OS),Windows_NT)
+    SHELL := powershell.exe
+endif
+
 BUILDPATH=$(CURDIR)
 MAKEPATH=$(BUILDPATH)/make
 MAKE_PREPARE_PATH=$(MAKEPATH)/photon/prepare
@@ -142,7 +147,7 @@ GOINSTALL=$(GOCMD) install
 GOTEST=$(GOCMD) test
 GODEP=$(GOTEST) -i
 GOFMT=gofmt -w
-GOBUILDIMAGE=golang:1.23.2
+GOBUILDIMAGE=golang:1.21.5
 GOBUILDPATHINCONTAINER=/harbor
 
 # go build
@@ -543,10 +548,10 @@ swagger_client:
 
 cleanbinary:
 	@echo "cleaning binary..."
-	if [ -f $(CORE_BINARYPATH)/$(CORE_BINARYNAME) ] ; then rm $(CORE_BINARYPATH)/$(CORE_BINARYNAME) ; fi
-	if [ -f $(JOBSERVICEBINARYPATH)/$(JOBSERVICEBINARYNAME) ] ; then rm $(JOBSERVICEBINARYPATH)/$(JOBSERVICEBINARYNAME) ; fi
-	if [ -f $(REGISTRYCTLBINARYPATH)/$(REGISTRYCTLBINARYNAME) ] ; then rm $(REGISTRYCTLBINARYPATH)/$(REGISTRYCTLBINARYNAME) ; fi
-	rm -rf make/photon/*/binary/
+	-rm -f $(CORE_BINARYPATH)/$(CORE_BINARYNAME)
+	-rm -f $(JOBSERVICEBINARYPATH)/$(JOBSERVICEBINARYNAME)
+	-rm -f $(REGISTRYCTLBINARYPATH)/$(REGISTRYCTLBINARYNAME)
+	-rm -rf make/photon/*/binary/
 
 cleanbaseimage:
 	@echo "cleaning base image for photon..."
@@ -588,12 +593,15 @@ cleanconfig:
 cleanall: cleanbinary cleanimage cleanbaseimage cleandockercomposefile cleanconfig cleanpackage
 
 clean:
-	@echo "  make cleanall:		remove binary, Harbor images, specific version docker-compose"
-	@echo "		file, specific version tag, online and offline install package"
-	@echo "  make cleanbinary:		remove core and jobservice binary"
-	@echo "  make cleanbaseimage:		remove base image of Harbor images"
-	@echo "  make cleanimage:		remove Harbor images"
-	@echo "  make cleandockercomposefile:	remove specific version docker-compose"
-	@echo "  make cleanpackage:		remove online and offline install package"
+	@echo "  make cleanall:        remove binary, Harbor images, specific version docker-compose"
+	@echo "      file, specific version tag, online and offline install package"
+	@echo "  make cleanbinary:     remove core and jobservice binary"
+	@echo "  make cleanbaseimage:  remove base image of Harbor images"
+	@echo "  make cleanimage:      remove Harbor images"
+	@echo "  make cleandockercomposefile: remove specific version docker-compose"
+	@echo "  make cleanpackage:    remove online and offline install package"
 
+.PHONY: all prepare compile build install clean cleanall cleanbinary cleanimage cleanconfig
+
+# Default target
 all: install
