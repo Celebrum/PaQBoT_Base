@@ -1,15 +1,15 @@
 # Configuration file of Harbor
 
 # The IP address or hostname to access admin UI and registry service.
-hostname: harbor.local
+hostname: local.harbor
 
 # http related config
 http:
-  port: 8084
+  port: 10000
 
 # https related config
 https:
-  port: 8444
+  port: 10443
   certificate: /certs/harbor.crt
   private_key: /certs/harbor.key
 
