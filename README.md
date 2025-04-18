@@ -6,7 +6,10 @@ PaQBoT (Package Quality Bot) is an advanced container registry security and qual
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![VS Code Dev 365 E3](https://img.shields.io/badge/VS%20Code%20Dev%20365%20E3-0078d7.svg?style=for-the-badge&logo=visual-studio-code&logoColor=white)
 ![VS Code Insiders](https://img.shields.io/badge/VS%20Code%20Insiders-24bfa5.svg?style=for-the-badge&logo=visual-studio-code&logoColor=white)
-![Google Firebase ISV Partner](https://img.shields.io/badge/Firebase%20ISV%20Partner-ffca28.svg?style=for-the-badge&logo=firebase&logoColor=black)
+![Microsoft ISV Partner](https://img.shields.io/badge/Microsoft%20ISV%20Partner-5E5E5E.svg?style=for-the-badge&logo=microsoft&logoColor=white)
+![Google Firebase Partner](https://img.shields.io/badge/Firebase%20Partner-ffca28.svg?style=for-the-badge&logo=firebase&logoColor=black)
+
+
 ## Overview
 
 PaQBoT_Base provides a secure and intelligent container registry platform built on top of Harbor, enhanced with quantum-powered security features and MindsDB integration for advanced analytics and threat detection.
